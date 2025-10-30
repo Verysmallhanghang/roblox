@@ -1,0 +1,50 @@
+-- 无限生命和禁止扣血量脚本
+local InfiniteHealthScript = [[
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    
+    while not player.Character do
+        wait(1)
+    end
+    
+    local character = player.Character
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    humanoid.Health = math.huge
+    humanoid.MaxHealth = math.huge
+
+    local function preventHealthDecrease()
+        humanoid.HealthChanged:Connect(function(newHealth)
+            if newHealth < humanoid.MaxHealth then
+                humanoid.Health = humanoid.MaxHealth
+            end
+        end)
+        if character:FindFirstChild("Humanoid") then
+            humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+                if humanoid.Health < humanoid.MaxHealth then
+                    humanoid.Health = humanoid.MaxHealth
+                end
+            end)
+        end
+    end
+    player.CharacterAdded:Connect(function(newCharacter)
+        character = newCharacter
+        humanoid = character:WaitForChild("Humanoid")
+        wait(1)
+        humanoid.Health = math.huge
+        humanoid.MaxHealth = math.huge
+        
+        preventHealthDecrease()
+    end)
+    
+    preventHealthDecrease()
+    
+    print("无限生命已激活！")
+]]
+local success, err = pcall(function()
+    loadstring(InfiniteHealthScript)()
+end)
+
+if not success then
+    warn("脚本执行错误: " .. err)
+end
