@@ -1,0 +1,218 @@
+-- Roblox飞行、穿墙、无限跳脚本
+local Player = game:GetService("Players").LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- 飞行功能
+local Flying = false
+local FlySpeed = 50
+local BodyGyro = nil
+local BodyVelocity = nil
+
+-- 穿墙功能
+local Noclipping = false
+local ClipTable = {}
+
+-- 无限跳功能
+local InfiniteJump = false
+
+-- 创建飞行控制
+function EnableFly()
+    if Flying then return end
+    
+    Flying = true
+    Humanoid.PlatformStand = true
+    
+    -- 创建陀螺仪用于方向控制
+    BodyGyro = Instance.new("BodyGyro")
+    BodyGyro.Parent = RootPart
+    BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    BodyGyro.P = 10000
+    BodyGyro.D = 500
+    
+    -- 创建速度控制
+    BodyVelocity = Instance.new("BodyVelocity")
+    BodyVelocity.Parent = RootPart
+    BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    
+    -- 飞行控制循环
+    local FlyLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        if not Flying then
+            FlyLoop:Disconnect()
+            return
+        end
+        
+        -- 获取相机方向
+        local Camera = workspace.CurrentCamera
+        local LookVector = Camera.CFrame.LookVector
+        local RightVector = Camera.CFrame.RightVector
+        local UpVector = Camera.CFrame.UpVector
+        
+        local Velocity = Vector3.new(0, 0, 0)
+        
+        -- WASD控制
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+            Velocity = Velocity + LookVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+            Velocity = Velocity - LookVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+            Velocity = Velocity - RightVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+            Velocity = Velocity + RightVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            Velocity = Velocity + Vector3.new(0, 1, 0)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) then
+            Velocity = Velocity - Vector3.new(0, 1, 0)
+        end
+        
+        -- 应用速度
+        if Velocity.Magnitude > 0 then
+            BodyVelocity.Velocity = Velocity.Unit * FlySpeed
+        else
+            BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+        
+        -- 更新方向
+        BodyGyro.CFrame = Camera.CFrame
+    end)
+end
+
+function DisableFly()
+    if not Flying then return end
+    
+    Flying = false
+    Humanoid.PlatformStand = false
+    
+    if BodyGyro then
+        BodyGyro:Destroy()
+        BodyGyro = nil
+    end
+    
+    if BodyVelocity then
+        BodyVelocity:Destroy()
+        BodyVelocity = nil
+    end
+end
+
+-- 穿墙功能
+function EnableNoclip()
+    if Noclipping then return end
+    
+    Noclipping = true
+    
+    -- 存储所有部件的CanCollide状态
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            ClipTable[part] = true
+            part.CanCollide = false
+        end
+    end
+    
+    -- 持续禁用碰撞
+    local NoclipLoop = game:GetService("RunService").Stepped:Connect(function()
+        if not Noclipping then
+            NoclipLoop:Disconnect()
+            return
+        end
+        
+        for part, _ in pairs(ClipTable) do
+            if part and part.Parent then
+                part.CanCollide = false
+            else
+                ClipTable[part] = nil
+            end
+        end
+    end)
+end
+
+function DisableNoclip()
+    if not Noclipping then return end
+    
+    Noclipping = false
+    
+    -- 恢复碰撞
+    for part, _ in pairs(ClipTable) do
+        if part and part.Parent then
+            part.CanCollide = true
+        end
+    end
+    ClipTable = {}
+end
+
+-- 无限跳功能
+function EnableInfiniteJump()
+    if InfiniteJump then return end
+    
+    InfiniteJump = true
+    local Jumping = false
+    
+    game:GetService("UserInputService").JumpRequest:Connect(function()
+        if InfiniteJump and not Jumping and Humanoid then
+            Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+function DisableInfiniteJump()
+    InfiniteJump = false
+end
+
+-- 键盘控制
+local UserInputService = game:GetService("UserInputService")
+local ToggleFlyKey = Enum.KeyCode.F
+local ToggleNoclipKey = Enum.KeyCode.N
+local ToggleJumpKey = Enum.KeyCode.J
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == ToggleFlyKey then
+        if Flying then
+            DisableFly()
+            print("飞行已禁用")
+        else
+            EnableFly()
+            print("飞行已启用 - 使用WASD控制，空格上升，Ctrl下降")
+        end
+    elseif input.KeyCode == ToggleNoclipKey then
+        if Noclipping then
+            DisableNoclip()
+            print("穿墙已禁用")
+        else
+            EnableNoclip()
+            print("穿墙已启用")
+        end
+    elseif input.KeyCode == ToggleJumpKey then
+        if InfiniteJump then
+            DisableInfiniteJump()
+            print("无限跳已禁用")
+        else
+            EnableInfiniteJump()
+            print("无限跳已启用")
+        end
+    end
+end)
+
+-- 角色重生时重新连接
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+    
+    -- 重置状态
+    Flying = false
+    Noclipping = false
+    InfiniteJump = false
+end)
+
+print("脚本已加载！")
+print("按 F 键切换飞行")
+print("按 N 键切换穿墙")
+print("按 J 键切换无限跳")
